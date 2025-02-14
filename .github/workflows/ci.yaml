@@ -35,7 +35,7 @@ jobs:
   build:
     needs: detect-changes
     runs-on: ubuntu-latest
-    environment: automatedDevProdEnv
+    environment: devenv
     if: needs.detect-changes.outputs.services != '[]'
     steps:
       - name: 📥 Checkout Code
