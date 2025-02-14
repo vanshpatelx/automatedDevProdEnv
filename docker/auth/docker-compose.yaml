@@ -1,0 +1,67 @@
+version: '3.8'
+
+networks:
+  main_network:
+    external: true
+
+services:
+  app:
+    container_name: AuthService
+    image: "auth-service:latest"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      JWT_SECRET: helloworld
+      DB_HOST: "postgres"
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: mydatabase
+      REDIS_HOST: "redis"
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: password
+      PORT: 5001
+      RABBITMQ_USER: admin
+      RABBITMQ_PASSWORD: password
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_PORT: 5672
+      RABBITMQ_EXCHANGES: auth_exchange,dlx_exchange
+    ports:
+      - "5001:5001"
+    networks:
+      - main_network
+
+  postgres:
+    container_name: auth_postgres_container
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    networks:
+      - main_network
+
+  redis:
+    container_name: auth_redis_container
+    image: redis:latest
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "password"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - main_network
+
+volumes:
+  pg_data:
+  redis_data:

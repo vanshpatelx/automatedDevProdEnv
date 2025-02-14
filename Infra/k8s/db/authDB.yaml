@@ -1,0 +1,124 @@
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authdb-secrets
+  namespace: db
+type: Opaque
+data:
+  POSTGRES_USER: YWRtaW4=  # base64 for 'admin'
+  POSTGRES_PASSWORD: cGFzc3dvcmQ=  # base64 for 'password'
+  POSTGRES_DB: bXlkYXRhYmFzZQ==  # base64 for 'mydatabase'
+---
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authdb-config
+  namespace: db
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGINT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+---
+# PersistentVolumeClaim (PVC)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: auth-postgres-pvc
+  namespace: db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# StatefulSet (PostgreSQL)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: authdb-postgres
+  namespace: db
+spec:
+  serviceName: authdb-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authdb-postgres
+  template:
+    metadata:
+      labels:
+        app: authdb-postgres
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: postgres
+          image: postgres:latest
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: authdb-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authdb-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: authdb-secrets
+                  key: POSTGRES_DB
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - admin
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - admin
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres  # Prevents overwriting
+            - name: sql-init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: sql-init
+          configMap:
+            name: authdb-config
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: auth-postgres-pvc
+---
+# Headless Service (PostgreSQL)
+apiVersion: v1
+kind: Service
+metadata:
+  name: authdb-postgres
+  namespace: db
+spec:
+  selector:
+    app: authdb-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  clusterIP: None

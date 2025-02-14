@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dummy-config
+  namespace: dummy
+data:
+  RABBITMQ_EXCHANGES: "auth_exchange,dlx_exchange"
+  DB_PORT: '5432'
+  DB_HOST: 'dummydb-postgres.db.svc.cluster.local'
+  REDIS_HOST: 'dummy-redis.cache.svc.cluster.local'
+  REDIS_PORT: '6379'
+  PORT: '5002'
+  RABBITMQ_HOST: 'rabbitmq.pubsub.svc.cluster.local'
+  RABBITMQ_PORT: '5672'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dummy-secret
+  namespace: dummy
+type: Opaque
+data:
+  JWT_SECRET: "aGVsbG93b3JsZA==" # base64 encoded 'helloworld'
+  DB_NAME: "bXlkYXRhYmFzZQ==" # base64 encoded 'mydatabase'
+  DB_USER: "YWRtaW4=" # base64 encoded 'admin'
+  DB_PASSWORD: "cGFzc3dvcmQ=" # base64 encoded 'password'
+  REDIS_PASSWORD: "cGFzc3dvcmQ=" # base64 encoded 'password'
+  RABBITMQ_USER: "YWRtaW4=" # base64 encoded 'admin'
+  RABBITMQ_PASSWORD: "cGFzc3dvcmQ=" # base64 encoded 'password'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-service
+  namespace: dummy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dummy-service
+  template:
+    metadata:
+      labels:
+        app: dummy-service
+    spec:
+      containers:
+        - name: dummy-service
+          image: vanshpatel/devenv-dummy-service:latest
+          ports:
+            - containerPort: 5002
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: JWT_SECRET
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: DB_PASSWORD
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: REDIS_PASSWORD
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: PORT
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-secret
+                  key: RABBITMQ_PASSWORD
+            - name: RABBITMQ_EXCHANGES
+              valueFrom:
+                configMapKeyRef:
+                  name: dummy-config
+                  key: RABBITMQ_EXCHANGES
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /dummy
+              port: 5002
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /dummy
+              port: 5002
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy-service
+  namespace: dummy
+spec:
+  selector:
+    app: dummy-service
+  ports:
+    - protocol: TCP
+      port: 5002
+      targetPort: 5002
+  type: ClusterIP

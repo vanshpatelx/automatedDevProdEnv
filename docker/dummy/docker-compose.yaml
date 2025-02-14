@@ -1,0 +1,62 @@
+version: '3.8'
+
+networks:
+  dummy_network:
+    driver: bridge
+
+services:
+  app:
+    container_name: DummyService
+    image: "dummy-service:latest"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      JWT_SECRET: helloworld
+      DB_HOST: "postgres"
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: mydatabase
+      REDIS_HOST: "redis"
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: password
+      PORT: 5002
+    ports:
+      - "5002:5002"
+    networks:
+      - dummy_network
+
+  postgres:
+    container_name: dummy_postgres_container
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    networks:
+      - dummy_network
+
+  redis:
+    container_name: dummy_redis_container
+    image: redis:latest
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "password"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dummy_network
+
+volumes:
+  pg_data:
+  redis_data:
