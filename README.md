@@ -41,7 +41,7 @@ The pipeline is triggered on:
 This system is deployed using **CIVO Cloud** and Kubernetes. Deployment manifests are available in the `infra/k8s` directory.
 
 ### Deployment Architecture
-![Deployment Architecture](./docs/deployment.png)
+![Deployment Architecture](https://github.com/vanshpatelx/devenv/blob/main/images/deployment.png)
 
 ## 🚀 Running Services & Dependencies
 ### Network Setup
